@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.outlined.ContentPaste
@@ -111,15 +112,20 @@ class KeyboardState {
     var clips by mutableStateOf(emptyList<String>())
     /** Dernier texte copié, proposé dans la barre tant qu'il n'est pas collé. */
     var recentClip by mutableStateOf<String?>(null)
+    /** Propositions du gestionnaire de mots de passe (Bitwarden…), dessinées par lui : on ne voit jamais leur contenu. */
+    var autofill by mutableStateOf(emptyList<android.view.View>())
 }
 
 data class KeyColors(val background: Color, val key: Color, val special: Color, val text: Color, val accent: Color, val onAccent: Color)
 
 @Composable
-fun keyColors(theme: KeyTheme): KeyColors {
+fun keyColors(theme: KeyTheme): KeyColors = keyColors(LocalContext.current, theme, isSystemInDarkTheme())
+
+/** Version hors Compose, pour colorer les propositions des gestionnaires de mots de passe. */
+fun keyColors(context: android.content.Context, theme: KeyTheme, systemDark: Boolean): KeyColors {
     if (theme == KeyTheme.BLACK) return KeyColors(Color.Black, Color(0xFF1C1C1E), Color(0xFF2C2C2E), Color.White, Color(0xFF8AB4F8), Color.Black)
-    val dark = when (theme) { KeyTheme.LIGHT -> false; KeyTheme.DARK -> true; else -> isSystemInDarkTheme() }
-    val s = if (dark) dynamicDarkColorScheme(LocalContext.current) else dynamicLightColorScheme(LocalContext.current)
+    val dark = when (theme) { KeyTheme.LIGHT -> false; KeyTheme.DARK -> true; else -> systemDark }
+    val s = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     return KeyColors(s.surfaceContainer, s.surfaceBright, s.secondaryContainer, s.onSurface, s.primary, s.onPrimary)
 }
 
@@ -283,6 +289,14 @@ private fun shifted(s: String, shift: Shift) = if (shift == Shift.OFF) s else s.
 
 @Composable
 private fun SuggestionBar(state: KeyboardState, words: List<String>, colors: KeyColors, font: FontFamily, actions: KeyActions) {
+    if (state.autofill.isNotEmpty()) {
+        Row(Modifier.fillMaxWidth().height(42.dp).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+            for (v in state.autofill) androidx.compose.ui.viewinterop.AndroidView(
+                { (v.parent as? android.view.ViewGroup)?.removeView(v); v }, Modifier.padding(horizontal = 4.dp),
+            )
+        }
+        return
+    }
     Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
         // Sans mot en cours : outils (presse-papiers, dernier texte copié, réglages)
         if (words.isEmpty()) {

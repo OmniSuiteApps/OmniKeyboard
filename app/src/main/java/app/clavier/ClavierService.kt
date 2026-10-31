@@ -3,7 +3,19 @@ package app.clavier
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.drawable.Icon
 import android.inputmethodservice.InputMethodService
+import android.os.Bundle
+import android.util.Size
+import android.view.inputmethod.InlineSuggestionsRequest
+import android.view.inputmethod.InlineSuggestionsResponse
+import android.widget.inline.InlinePresentationSpec
+import androidx.autofill.inline.UiVersions
+import androidx.autofill.inline.common.TextViewStyle
+import androidx.autofill.inline.common.ViewStyle
+import androidx.autofill.inline.v1.InlineSuggestionUi
+import androidx.compose.ui.graphics.toArgb
 import android.media.AudioManager
 import android.text.InputType
 import android.view.HapticFeedbackConstants
@@ -139,9 +151,43 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         refresh()
     }
 
+    /** Android demande au clavier où et comment montrer les propositions de Bitwarden et des autres gestionnaires. */
+    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest {
+        val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        val c = keyColors(this, prefs.value.theme, dark)
+        val px = { dp: Int -> (dp * resources.displayMetrics.density).toInt() }
+        val style = InlineSuggestionUi.newStyleBuilder()
+            .setChipStyle(
+                ViewStyle.Builder().setBackground(Icon.createWithResource(this, R.drawable.chip).setTint(c.special.toArgb()))
+                    .setPadding(px(12), 0, px(12), 0).build(),
+            )
+            .setTitleStyle(TextViewStyle.Builder().setTextColor(c.text.toArgb()).setTextSize(14f).build())
+            .setSubtitleStyle(TextViewStyle.Builder().setTextColor(c.text.copy(alpha = 0.7f).toArgb()).setTextSize(12f).build())
+            .build()
+        val spec = InlinePresentationSpec.Builder(Size(px(60), px(34)), Size(px(320), px(34)))
+            .setStyle(UiVersions.newStylesBuilder().addStyle(style).build()).build()
+        return InlineSuggestionsRequest.Builder(listOf(spec)).setMaxSuggestionCount(6).build()
+    }
+
+    override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
+        val items = response.inlineSuggestions
+        val views = arrayOfNulls<View>(items.size)
+        var left = items.size
+        if (left == 0) state.autofill = emptyList()
+        // Chaque proposition est dessinée par le gestionnaire ; on attend qu'elles soient toutes prêtes, dans l'ordre
+        items.forEachIndexed { i, s ->
+            s.inflate(this, Size(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT), mainExecutor) { v ->
+                views[i] = v
+                if (--left == 0) state.autofill = views.filterNotNull()
+            }
+        }
+        return true
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         state.suggestions = emptyList()
+        state.autofill = emptyList()
         lifecycleScope.launch(Dispatchers.IO) { learned.save() }
     }
 
