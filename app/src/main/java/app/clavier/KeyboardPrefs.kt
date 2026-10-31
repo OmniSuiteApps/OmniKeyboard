@@ -58,6 +58,10 @@ data class KeyboardPrefs(
     val keyPreview: Boolean = true,
     val glide: Boolean = true,
     val predict: Boolean = true,
+    /** Faux : mode 100 % local, rien n'est envoyé au correcteur du téléphone (une autre appli). */
+    val spellChecker: Boolean = true,
+    /** Le choix « normal / 100 % local » de la première ouverture a été fait. */
+    val privacyChosen: Boolean = false,
 )
 
 /** Photo de fond déjà cadrée, copiée dans l'appli (l'accès à la photo choisie ne dure pas). */
@@ -91,6 +95,8 @@ private object K {
     val keyPreview = booleanPreferencesKey("keyPreview")
     val glide = booleanPreferencesKey("glide")
     val predict = booleanPreferencesKey("predict")
+    val spellChecker = booleanPreferencesKey("spellChecker")
+    val privacyChosen = booleanPreferencesKey("privacyChosen")
 }
 
 private inline fun <reified T : Enum<T>> decode(name: String?, default: T): T = enumValues<T>().firstOrNull { it.name == name } ?: default
@@ -122,6 +128,8 @@ private fun decode(p: Preferences) = KeyboardPrefs().let { d ->
         keyPreview = p[K.keyPreview] ?: d.keyPreview,
         glide = p[K.glide] ?: d.glide,
         predict = p[K.predict] ?: d.predict,
+        spellChecker = p[K.spellChecker] ?: d.spellChecker,
+        privacyChosen = p[K.privacyChosen] ?: d.privacyChosen,
     )
 }
 
@@ -155,5 +163,7 @@ suspend fun Context.saveKeyboardPrefs(v: KeyboardPrefs) {
         p[K.keyPreview] = v.keyPreview
         p[K.glide] = v.glide
         p[K.predict] = v.predict
+        p[K.spellChecker] = v.spellChecker
+        p[K.privacyChosen] = v.privacyChosen
     }
 }

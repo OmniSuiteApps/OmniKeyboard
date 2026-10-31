@@ -94,12 +94,15 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         super.onCreate()
         savedState.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-        // Nouvelle langue d'écriture : nouvelle session du correcteur
+        // Nouvelle langue d'écriture : nouvelle session du correcteur ; en mode 100 % local, aucune session
         lifecycleScope.launch {
-            prefs.map { it.language }.distinctUntilChanged().collect { language ->
+            prefs.map { it.language to it.spellChecker }.distinctUntilChanged().collect { (language, useSpell) ->
                 spell?.close()
                 glideSpell?.close()
+                spell = null
+                glideSpell = null
                 lastSpell = null
+                if (!useSpell) return@collect
                 spell = SpellSuggester(this@ClavierService, language.locale) { r ->
                     lastSpell = r
                     if (r.word == currentWord()) showSuggestions(r.word)

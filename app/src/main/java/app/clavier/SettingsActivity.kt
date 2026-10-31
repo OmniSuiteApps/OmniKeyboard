@@ -39,6 +39,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -74,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
@@ -122,6 +125,12 @@ private fun SettingsScreen() {
     val scope = rememberCoroutineScope()
     val prefs by remember { context.keyboardPrefs() }.collectAsState(KeyboardPrefs())
     val set: (KeyboardPrefs) -> Unit = { scope.launch { context.saveKeyboardPrefs(it) } }
+    // Vrai tant que les réglages se lisent : l'écran de choix n'apparaît pas une fraction de seconde à chaque ouverture
+    val chosen by remember { context.keyboardPrefs().map { it.privacyChosen } }.collectAsState(true)
+    if (!chosen) {
+        PrivacyChoice { local -> set(prefs.copy(privacyChosen = true, spellChecker = !local)) }
+        return
+    }
     val imm = context.getSystemService(InputMethodManager::class.java)
 
     var status by remember { mutableStateOf(Status(enabled = true, current = true, spellChecker = true, learned = 0)) }
@@ -202,9 +211,57 @@ private fun summary(c: Category, p: KeyboardPrefs, s: Status): String = when (c)
     Category.LANGUAGE -> p.language.label
     Category.SUGGESTIONS -> if (!p.suggestions) "Désactivées" else listOfNotNull(
         "Activées",
-        "correcteur éteint".takeUnless { s.spellChecker },
+        "100 % local".takeUnless { p.spellChecker },
+        "correcteur éteint".takeUnless { s.spellChecker || !p.spellChecker },
         "${s.learned} mots appris".takeIf { p.learn },
     ).joinToString(" · ")
+}
+
+/** Première ouverture : fonctionnement normal ou 100 % local (modifiable ensuite dans Suggestions). */
+@Composable
+private fun PrivacyChoice(onPick: (local: Boolean) -> Unit) {
+    Column(
+        Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Bienvenue", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
+        Text(
+            "Clavier n'a pas accès à Internet. Une seule question : peut-il demander de l'aide au correcteur orthographique du téléphone ?",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        ChoiceCard(
+            Icons.Outlined.Spellcheck, "Fonctionnement normal",
+            listOf(
+                "Suggestions et correction automatique du correcteur du téléphone",
+                "Les derniers mots tapés lui sont envoyés, jamais les mots de passe",
+                "Ce correcteur est une autre appli (souvent Google ou Samsung)",
+            ),
+        ) { onPick(false) }
+        ChoiceCard(
+            Icons.Outlined.Lock, "100 % local",
+            listOf(
+                "Rien ne sort du clavier",
+                "Suggestions tirées de vos mots et du dictionnaire personnel seulement",
+                "Pas de correction automatique, saisie gestuelle moins précise",
+            ),
+        ) { onPick(true) }
+        Text("Modifiable à tout moment dans Suggestions.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun ChoiceCard(icon: ImageVector, title: String, points: List<String>, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        Modifier.fillMaxWidth().clip(CARD).background(colors.surfaceContainerHigh).clickable(onClick = onClick).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.padding(end = 12.dp).size(28.dp))
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+        }
+        points.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
+    }
 }
 
 @Composable
@@ -281,7 +338,9 @@ private fun TypingPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
     Toggle("Majuscule automatique", "En début de phrase, selon le champ", p.autoCap) { set(p.copy(autoCap = it)) }
     Toggle("Double espace = point", "Deux espaces après un mot tapent « . »", p.doubleSpacePeriod) { set(p.copy(doubleSpacePeriod = it)) }
     Toggle(
-        "Correction automatique", "À l'espace, d'après le correcteur de la langue d'écriture · ⌫ juste après annule",
+        "Correction automatique",
+        if (p.spellChecker) "À l'espace, d'après le correcteur de la langue d'écriture · ⌫ juste après annule"
+        else "Inactive en mode 100 % local (elle a besoin du correcteur du téléphone)",
         p.autoCorrect,
     ) { set(p.copy(autoCorrect = it)) }
     Toggle("Bulle de touche", "La lettre appuyée s'affiche au-dessus du doigt", p.keyPreview) { set(p.copy(keyPreview = it)) }
@@ -309,8 +368,14 @@ private fun SuggestionsPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, stat
     Toggle("Barre de suggestions", "Jamais dans les mots de passe", p.suggestions) { set(p.copy(suggestions = it)) }
     if (!p.suggestions) return
     SectionTitle("Sources")
-    Info("Correcteur du téléphone", if (status.spellChecker) "Activé" else "Désactivé : seules les deux autres sources servent")
-    if (!status.spellChecker) OutlinedButton({ context.startActivity(Intent(Settings.ACTION_SETTINGS)) }) { Text("Ouvrir les paramètres") }
+    Toggle(
+        "Correcteur du téléphone",
+        if (p.spellChecker) "Les derniers mots tapés lui sont envoyés (jamais les mots de passe). Il appartient à une autre appli, souvent Google ou Samsung"
+        else "Éteint : mode 100 % local, rien ne sort du clavier · moins de suggestions, pas de correction automatique",
+        p.spellChecker,
+    ) { set(p.copy(spellChecker = it)) }
+    if (p.spellChecker && !status.spellChecker) Info("Correcteur désactivé dans Android", "Seules les deux autres sources servent")
+    if (p.spellChecker && !status.spellChecker) OutlinedButton({ context.startActivity(Intent(Settings.ACTION_SETTINGS)) }) { Text("Ouvrir les paramètres") }
     Info("Dictionnaire personnel", "Les mots ajoutés dans les paramètres d'Android")
     OutlinedButton({ context.startActivity(Intent(Settings.ACTION_USER_DICTIONARY_SETTINGS)) }) { Text("Modifier le dictionnaire") }
     Toggle("Prédire le mot suivant", "D'après les mots que vous enchaînez souvent", p.predict) { set(p.copy(predict = it)) }
