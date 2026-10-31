@@ -14,9 +14,6 @@ object Suggestions {
     /** Clé de comparaison sans accents ni casse : « ecole » trouve « école ». */
     fun fold(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).filter { it.code !in 0x300..0x36F }
 
-    /** Mots connus commençant par `typed`, les plus fréquents d'abord (version lente, gardée pour les petits tests). */
-    fun completions(typed: String, words: Map<String, Int>, max: Int = 5): List<String> = WordIndex(words).completions(typed, max)
-
     /**
      * Barre de suggestions : le mot tapé, puis les corrections du correcteur du téléphone et les complétions locales,
      * sans doublons, dans la casse du mot tapé.
@@ -70,8 +67,6 @@ class WordIndex(words: Map<String, Int>) {
         words.keys.mapTo(lower) { it.lowercase() }
     }
 
-    val size get() = keys.size
-
     operator fun contains(word: String) = word.lowercase() in lower
 
     fun completions(typed: String, max: Int = 5): List<String> {
@@ -97,7 +92,7 @@ class WordIndex(words: Map<String, Int>) {
 }
 
 /** Mots tapés souvent et mots qui se suivent, gardés dans des fichiers privés de l'appli (jamais envoyés). */
-class LearnedWords private constructor(private val file: File, private val pairsFile: File) {
+class LearnedWords internal constructor(private val file: File, private val pairsFile: File) {
     private val counts = HashMap<String, Int>()
     private val pairs = HashMap<String, HashMap<String, Int>>()
     private var dirty = false
@@ -121,11 +116,14 @@ class LearnedWords private constructor(private val file: File, private val pairs
 
     fun snapshot(): Map<String, Int> = synchronized(this) { HashMap(counts) }
 
+    /** Nombre de fois où le mot a été tapé, sans tenir compte de la casse. */
+    fun count(word: String): Int = synchronized(this) { counts[word] ?: counts[word.lowercase()] ?: 0 }
+
     /** `previous` : le mot d'avant dans la même phrase, pour apprendre l'enchaînement. */
     fun learn(word: String, previous: String? = null): Unit = synchronized(this) {
         if (!TextRules.learnable(word)) return
-        // Un mot en début de phrase n'est pas un nom propre : on le garde en minuscules s'il existe déjà ainsi
-        val key = word.lowercase().takeIf { it in counts } ?: word
+        // Sans mot avant (début de phrase, après une ponctuation), la majuscule n'en dit rien : on apprend en minuscules
+        val key = if (previous == null || word.lowercase() in counts) word.lowercase() else word
         counts[key] = (counts[key] ?: 0) + 1
         if (previous != null && TextRules.learnable(previous)) {
             val next = pairs.getOrPut(previous.lowercase()) { HashMap() }
@@ -141,11 +139,25 @@ class LearnedWords private constructor(private val file: File, private val pairs
         pairs[previous.lowercase()]?.entries?.sortedByDescending { it.value }?.take(max)?.map { it.key }.orEmpty()
     }
 
-    fun save() = synchronized(this) {
-        if (!dirty) return
-        write(file, counts.entries.joinToString("") { "${it.key}\t${it.value}\n" })
-        write(pairsFile, buildString { pairs.forEach { (a, next) -> next.forEach { (b, n) -> append("$a\t$b\t$n\n") } } })
-        dirty = false
+    fun save() {
+        // Le texte est préparé sous verrou, écrit hors verrou : la frappe n'attend pas le disque
+        val (words, next) = synchronized(this) {
+            if (!dirty) return
+            if (counts.size > MAX_WORDS) prune()
+            dirty = false
+            counts.entries.joinToString("") { "${it.key}\t${it.value}\n" } to
+                buildString { pairs.forEach { (a, next) -> next.forEach { (b, n) -> append("$a\t$b\t$n\n") } } }
+        }
+        // Stockage plein : on garde l'ancien fichier et on réessaiera à la prochaine fermeture, sans planter le clavier
+        runCatching { write(file, words); write(pairsFile, next) }.onFailure { synchronized(this) { dirty = true } }
+    }
+
+    /** Au-delà de MAX_WORDS, on oublie les mots et enchaînements vus une seule fois (fautes, noms de passage). */
+    private fun prune() {
+        counts.values.removeIf { it <= 1 }
+        pairs.values.forEach { it.values.removeIf { n -> n <= 1 } }
+        pairs.values.removeIf { it.isEmpty() }
+        version++
     }
 
     private fun write(target: File, text: String) {
@@ -165,6 +177,7 @@ class LearnedWords private constructor(private val file: File, private val pairs
     }
 
     companion object {
+        private const val MAX_WORDS = 20_000
         @Volatile private var instance: LearnedWords? = null
         fun get(context: Context) = instance ?: synchronized(this) {
             val dir = context.applicationContext.filesDir

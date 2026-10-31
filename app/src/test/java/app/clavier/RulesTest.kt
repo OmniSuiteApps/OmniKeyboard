@@ -30,11 +30,6 @@ class RulesTest {
         assertEquals("bonjour", TextRules.matchCase("bon", "bonjour"))
     }
 
-    @Test fun completionsIgnoreAccents() {
-        val words = mapOf("école" to 5, "écoute" to 9, "eco" to 50)
-        assertEquals(listOf("écoute", "école"), Suggestions.completions("eco", words))
-    }
-
     @Test fun mergeKeepsTypedFirstWithoutDuplicates() {
         assertEquals(listOf("Bonj", "Bonjour", "Bonne"), Suggestions.merge("Bonj", listOf("bonjour", "bonne"), listOf("bonjour")))
         assertEquals(emptyList<String>(), Suggestions.merge("", listOf("a"), emptyList()))

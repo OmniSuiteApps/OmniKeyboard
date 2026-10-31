@@ -43,3 +43,21 @@ class GboardTest {
         assertTrue(Glide.sketch(path, keys).startsWith("r") && Glide.sketch(path, keys).endsWith("e"))
     }
 }
+
+class LearnedWordsTest {
+    @Test fun learnsSavesAndPredicts() {
+        val dir = kotlin.io.path.createTempDirectory().toFile()
+        val a = java.io.File(dir, "mots.tsv"); val b = java.io.File(dir, "suivants.tsv")
+        val words = LearnedWords(a, b)
+        words.learn("Merci") // début de phrase : appris en minuscules
+        words.learn("Paris", "à") // au milieu d'une phrase : garde sa majuscule
+        words.learn("beaucoup", "merci")
+        words.learn("beaucoup", "merci")
+        words.save()
+        val reread = LearnedWords(a, b)
+        assertEquals(1, reread.count("merci"))
+        assertEquals(1, reread.count("Paris"))
+        assertEquals(listOf("beaucoup"), reread.next("Merci"))
+        dir.deleteRecursively()
+    }
+}

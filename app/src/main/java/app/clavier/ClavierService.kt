@@ -59,7 +59,9 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
     private val rejected = HashSet<String>()
     /** Mot posé par la saisie gestuelle : la barre garde ses variantes tant qu'il est sous le curseur. */
     private var glided: String? = null
-    private var pendingGlide: ((List<String>) -> Unit)? = null
+    /** Tracé qui attend le correcteur : son ébauche et de quoi poser le mot. */
+    private var pendingGlide: Pair<String, (List<String>) -> Unit>? = null
+    private var clipAt = 0L
 
     private var suggest = false
     private var learn = false
@@ -73,6 +75,7 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         val text = clip.getItemAt(0).coerceToText(this)?.toString()?.takeIf { it.isNotBlank() } ?: return@OnPrimaryClipChangedListener
         state.clips = (listOf(text) + state.clips.filter { it != text }).take(10)
         state.recentClip = text
+        clipAt = android.os.SystemClock.uptimeMillis()
     }
 
     override fun onCreate() {
@@ -89,7 +92,10 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
                     lastSpell = r
                     if (r.word == currentWord()) showSuggestions(r.word)
                 }
-                glideSpell = SpellSuggester(this@ClavierService, language.locale) { r -> pendingGlide?.invoke(r.suggestions); pendingGlide = null }
+                // Une réponse pour un autre tracé que celui qui attend est ignorée
+                glideSpell = SpellSuggester(this@ClavierService, language.locale) { r ->
+                    pendingGlide?.takeIf { it.first == r.word }?.let { pendingGlide = null; it.second(r.suggestions) }
+                }
             }
         }
         clipboard.addPrimaryClipChangedListener(clipListener)
@@ -194,6 +200,8 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
             val caps = prefs.value.autoCap && ic.getCursorCapsMode(currentInputEditorInfo?.inputType ?: 0) != 0
             state.shift = if (caps) Shift.ONCE else Shift.OFF
         }
+        // Le dernier texte copié ne reste proposé que 5 minutes (il peut s'agir d'un mot de passe non signalé)
+        if (state.recentClip != null && android.os.SystemClock.uptimeMillis() - clipAt > 5 * 60_000) state.recentClip = null
         if (!suggest) { state.suggestions = emptyList(); return }
         val before = before()
         val word = TextRules.currentWord(before)
@@ -228,7 +236,9 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
     private fun autoCorrect() {
         if (!suggest || !prefs.value.autoCorrect) return
         val word = currentWord()
-        val fixed = Suggestions.autoCorrection(word, lastSpell) { it in index() || it.lowercase() in rejected } ?: return
+        // Un mot appris ne compte qu'après 3 fois : une faute tapée trop vite pour être corrigée ne devient pas « connue »
+        val known = { w: String -> w in userDictionary || w.lowercase() in userDictionary || learned.count(w) >= 3 || w.lowercase() in rejected }
+        val fixed = Suggestions.autoCorrection(word, lastSpell, known) ?: return
         val ic = currentInputConnection ?: return
         ic.deleteSurroundingText(word.length, 0)
         ic.commitText(fixed, 1)
@@ -350,9 +360,13 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
             val ranked = Glide.rank(path, keys, keyWidth, candidates).ifEmpty { listOf(sketch) }
             commitGlide(ranked)
         }
-        val g = glideSpell
-        if (g == null || !g.available) commit(emptyList()) else {
-            pendingGlide = commit
+        // Jamais de correcteur dans un mot de passe : il recevrait le texte du champ
+        val g = glideSpell?.takeIf { suggest && it.available }
+        // Un tracé encore en attente est posé tel quel avant le nouveau
+        pendingGlide?.second?.invoke(emptyList())
+        pendingGlide = null
+        if (g == null) commit(emptyList()) else {
+            pendingGlide = sketch to commit
             val before = before()
             g.request(sketch, if (before.isEmpty() || before.last() == ' ') "$before$sketch" else "$before $sketch")
         }
