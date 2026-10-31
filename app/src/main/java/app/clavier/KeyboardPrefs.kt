@@ -54,6 +54,10 @@ data class KeyboardPrefs(
     val deleteSwipe: Boolean = true,
     val suggestions: Boolean = true,
     val learn: Boolean = true,
+    val autoCorrect: Boolean = true,
+    val keyPreview: Boolean = true,
+    val glide: Boolean = true,
+    val predict: Boolean = true,
 )
 
 /** Photo de fond déjà cadrée, copiée dans l'appli (l'accès à la photo choisie ne dure pas). */
@@ -83,6 +87,10 @@ private object K {
     val deleteSwipe = booleanPreferencesKey("deleteSwipe")
     val suggestions = booleanPreferencesKey("suggestions")
     val learn = booleanPreferencesKey("learn")
+    val autoCorrect = booleanPreferencesKey("autoCorrect")
+    val keyPreview = booleanPreferencesKey("keyPreview")
+    val glide = booleanPreferencesKey("glide")
+    val predict = booleanPreferencesKey("predict")
 }
 
 private inline fun <reified T : Enum<T>> decode(name: String?, default: T): T = enumValues<T>().firstOrNull { it.name == name } ?: default
@@ -110,6 +118,10 @@ private fun decode(p: Preferences) = KeyboardPrefs().let { d ->
         deleteSwipe = p[K.deleteSwipe] ?: d.deleteSwipe,
         suggestions = p[K.suggestions] ?: d.suggestions,
         learn = p[K.learn] ?: d.learn,
+        autoCorrect = p[K.autoCorrect] ?: d.autoCorrect,
+        keyPreview = p[K.keyPreview] ?: d.keyPreview,
+        glide = p[K.glide] ?: d.glide,
+        predict = p[K.predict] ?: d.predict,
     )
 }
 
@@ -139,5 +151,9 @@ suspend fun Context.saveKeyboardPrefs(v: KeyboardPrefs) {
         p[K.deleteSwipe] = v.deleteSwipe
         p[K.suggestions] = v.suggestions
         p[K.learn] = v.learn
+        p[K.autoCorrect] = v.autoCorrect
+        p[K.keyPreview] = v.keyPreview
+        p[K.glide] = v.glide
+        p[K.predict] = v.predict
     }
 }

@@ -97,6 +97,7 @@ private object PreviewActions : KeyActions {
     override fun moveCursor(steps: Int) = Unit
     override fun deleteWord() = Unit
     override fun pick(suggestion: String) = Unit
+    override fun glide(path: List<Pt>, keys: Map<Char, Pt>, keyWidth: Float) = Unit
     override fun feedback() = Unit
 }
 
@@ -279,6 +280,11 @@ private fun TypingPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
     SectionTitle("Correction de la frappe")
     Toggle("Majuscule automatique", "En début de phrase, selon le champ", p.autoCap) { set(p.copy(autoCap = it)) }
     Toggle("Double espace = point", "Deux espaces après un mot tapent « . »", p.doubleSpacePeriod) { set(p.copy(doubleSpacePeriod = it)) }
+    Toggle(
+        "Correction automatique", "À l'espace, d'après le correcteur de la langue d'écriture · ⌫ juste après annule",
+        p.autoCorrect,
+    ) { set(p.copy(autoCorrect = it)) }
+    Toggle("Bulle de touche", "La lettre appuyée s'affiche au-dessus du doigt", p.keyPreview) { set(p.copy(keyPreview = it)) }
 }
 
 @Composable
@@ -286,6 +292,7 @@ private fun GesturesPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
     SectionTitle("Glisser")
     Toggle("Sur la barre d'espace", "Déplace le curseur", p.spaceCursor) { set(p.copy(spaceCursor = it)) }
     Toggle("Vers la gauche sur ⌫", "Efface mot par mot", p.deleteSwipe) { set(p.copy(deleteSwipe = it)) }
+    Toggle("Saisie gestuelle", "Glisser de lettre en lettre sans lever le doigt", p.glide) { set(p.copy(glide = it)) }
     SectionTitle("Appui long")
     listOf(
         "Lettre" to "Accents, et chiffres sur la 1re rangée",
@@ -306,6 +313,7 @@ private fun SuggestionsPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, stat
     if (!status.spellChecker) OutlinedButton({ context.startActivity(Intent(Settings.ACTION_SETTINGS)) }) { Text("Ouvrir les paramètres") }
     Info("Dictionnaire personnel", "Les mots ajoutés dans les paramètres d'Android")
     OutlinedButton({ context.startActivity(Intent(Settings.ACTION_USER_DICTIONARY_SETTINGS)) }) { Text("Modifier le dictionnaire") }
+    Toggle("Prédire le mot suivant", "D'après les mots que vous enchaînez souvent", p.predict) { set(p.copy(predict = it)) }
     Toggle("Apprendre mes mots", "${status.learned} mots retenus, jamais envoyés · rien en navigation privée", p.learn) { set(p.copy(learn = it)) }
     if (status.learned > 0) TextButton({ LearnedWords.get(context).clear(); onCleared() }) { Text("Oublier les mots appris") }
 }

@@ -7,6 +7,14 @@ object TextRules {
     /** Mot en cours de frappe juste avant le curseur ; apostrophe et trait d'union le coupent (« l'arbre » → « arbre »). */
     fun currentWord(before: CharSequence): String = before.takeLastWhile { it.isLetterOrDigit() }.toString()
 
+    /** Mot d'avant le mot en cours, s'il n'en est séparé que par des espaces (pas de point entre les deux). */
+    fun previousWord(before: CharSequence): String? {
+        val rest = before.dropLast(currentWord(before).length)
+        val trimmed = rest.trimEnd(' ')
+        if (trimmed.length == rest.length) return null
+        return currentWord(trimmed).takeIf { it.isNotEmpty() }
+    }
+
     /** Deux espaces après un mot : on remplace le premier par un point. */
     fun doubleSpacePeriod(before: CharSequence): Boolean =
         before.length >= 2 && before[before.length - 1] == ' ' && before[before.length - 2].isLetterOrDigit()
