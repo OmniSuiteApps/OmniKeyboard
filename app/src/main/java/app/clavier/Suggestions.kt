@@ -220,7 +220,17 @@ class SpellSuggester(
 
     // Sans langue choisie : celle des réglages du correcteur du téléphone
     private val session: SpellCheckerSession? = context.getSystemService(TextServicesManager::class.java)
-        ?.newSpellCheckerSession(null, locale, this, locale == null)
+        ?.let { it.newSpellCheckerSession(null, locale?.let { l -> supported(it, l) }, this, locale == null) }
+
+    /**
+     * Sans sa variante exacte, Android prend la dernière variante de la même langue : « fr-FR » donnait le fr_CA du
+     * correcteur de Gboard (fr, fr_CA), qui proposait des mots anglais. On demande alors la langue seule.
+     */
+    private fun supported(tsm: TextServicesManager, locale: java.util.Locale): java.util.Locale {
+        val info = tsm.currentSpellCheckerInfo ?: return locale
+        val subtypes = (0 until info.subtypeCount).map { info.getSubtypeAt(it).locale }
+        return if (locale.toString() in subtypes) locale else java.util.Locale.forLanguageTag(locale.language)
+    }
 
     private class Request(val word: String, val text: String, var sentAt: Long = 0)
 
