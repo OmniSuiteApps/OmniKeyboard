@@ -80,22 +80,32 @@ class LearnedWords private constructor(private val file: File) {
     }
 }
 
-/** Dictionnaire personnel d'Android : seul le clavier actif a le droit de le lire. */
-fun readUserDictionary(context: Context): Map<String, Int> = runCatching {
+/**
+ * Dictionnaire personnel d'Android : seul le clavier actif a le droit de le lire. Avec une langue, on garde ses mots
+ * et ceux ajoutés « pour toutes les langues ».
+ */
+fun readUserDictionary(context: Context, language: java.util.Locale?): Map<String, Int> = runCatching {
+    val lang = language?.language
     context.contentResolver.query(
         UserDictionary.Words.CONTENT_URI,
-        arrayOf(UserDictionary.Words.WORD, UserDictionary.Words.FREQUENCY), null, null, null,
+        arrayOf(UserDictionary.Words.WORD, UserDictionary.Words.FREQUENCY),
+        lang?.let { "${UserDictionary.Words.LOCALE} IS NULL OR ${UserDictionary.Words.LOCALE} LIKE ?" },
+        lang?.let { arrayOf("$it%") }, null,
     )?.use { c ->
         buildMap { while (c.moveToNext()) put(c.getString(0) ?: continue, c.getInt(1)) }
     }
 }.getOrNull().orEmpty()
 
 /** Correcteur orthographique du téléphone (celui choisi dans Paramètres > Langues > Correcteur). */
-class SpellSuggester(context: Context, private val onResult: (word: String, suggestions: List<String>) -> Unit) :
-    SpellCheckerSession.SpellCheckerSessionListener {
+class SpellSuggester(
+    context: Context,
+    locale: java.util.Locale?,
+    private val onResult: (word: String, suggestions: List<String>) -> Unit,
+) : SpellCheckerSession.SpellCheckerSessionListener {
 
+    // Sans langue choisie : celle des réglages du correcteur du téléphone
     private val session: SpellCheckerSession? = context.getSystemService(TextServicesManager::class.java)
-        ?.newSpellCheckerSession(null, null, this, true)
+        ?.newSpellCheckerSession(null, locale, this, locale == null)
 
     // Une réponse par demande, dans l'ordre : la file relie chaque réponse au mot demandé
     private val pending = ArrayDeque<String>()

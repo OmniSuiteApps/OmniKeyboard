@@ -40,6 +40,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.TouchApp
@@ -103,6 +104,7 @@ private object PreviewActions : KeyActions {
 private enum class Category(val icon: ImageVector, val label: String, val preview: Boolean) {
     APPEARANCE(Icons.Outlined.Palette, "Apparence", true),
     LAYOUT(Icons.Outlined.Keyboard, "Disposition", true),
+    LANGUAGE(Icons.Outlined.Language, "Langue d'écriture", false),
     TYPING(Icons.Outlined.TouchApp, "Saisie", false),
     GESTURES(Icons.Outlined.Swipe, "Gestes", false),
     SUGGESTIONS(Icons.Outlined.AutoAwesome, "Suggestions", true),
@@ -178,6 +180,7 @@ private fun SettingsScreen() {
                         Category.LAYOUT -> LayoutPage(prefs, set)
                         Category.TYPING -> TypingPage(prefs, set)
                         Category.GESTURES -> GesturesPage(prefs, set)
+                        Category.LANGUAGE -> LanguagePage(prefs, set, status)
                         Category.SUGGESTIONS -> SuggestionsPage(prefs, set, status) { status = Status(status.enabled, status.current, status.spellChecker, 0) }
                     }
                 }
@@ -195,6 +198,7 @@ private fun summary(c: Category, p: KeyboardPrefs, s: Status): String = when (c)
         .joinToString(" · ").ifEmpty { "Tout désactivé" }
     Category.GESTURES -> listOfNotNull("Curseur".takeIf { p.spaceCursor }, "Effacer des mots".takeIf { p.deleteSwipe })
         .joinToString(" · ").ifEmpty { "Appui long seulement" }
+    Category.LANGUAGE -> p.language.label
     Category.SUGGESTIONS -> if (!p.suggestions) "Désactivées" else listOfNotNull(
         "Activées",
         "correcteur éteint".takeUnless { s.spellChecker },
@@ -249,6 +253,22 @@ private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, onPic
 private fun LayoutPage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
     Choices("Disposition", LayoutKind.entries, p.layout, { it.label }) { set(p.copy(layout = it)) }
     Toggle("Rangée de chiffres", "Sinon, appui long sur la première rangée", p.numberRow) { set(p.copy(numberRow = it)) }
+}
+
+@Composable
+private fun LanguagePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, status: Status) {
+    val context = LocalContext.current
+    Choices("Langue", WritingLanguage.entries, p.language, { it.label }) { set(p.copy(language = it)) }
+    Info(
+        "Ce qu'elle change",
+        "Les suggestions du correcteur du téléphone et les mots du dictionnaire perso. Les mots appris servent dans toutes les langues.",
+    )
+    if (p.language != WritingLanguage.SYSTEM) Info(
+        "Langue absente du correcteur ?",
+        "Ajoute-la aux langues du téléphone, sinon seuls le dictionnaire perso et les mots appris servent.",
+    )
+    if (!status.spellChecker) Info("Correcteur du téléphone", "Désactivé : aucune suggestion du dictionnaire du téléphone")
+    OutlinedButton({ context.startActivity(Intent(Settings.ACTION_LOCALE_SETTINGS)) }) { Text("Langues du téléphone") }
 }
 
 @Composable

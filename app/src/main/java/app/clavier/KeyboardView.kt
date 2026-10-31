@@ -259,7 +259,7 @@ private fun KeyCell(
         val icon = keyIcon(key.code, state.enter, state.shift)
         when {
             icon != null -> Icon(icon, null, tint = fg, modifier = Modifier.size((prefs.fontSize + 2).dp))
-            key.code == Code.SPACE -> Text(prefs.layout.label, color = fg.copy(alpha = 0.5f), fontSize = 12.sp, fontFamily = font)
+            key.code == Code.SPACE -> Text(listOf(prefs.language.short, prefs.layout.label).filter { it.isNotEmpty() }.joinToString(" · "), color = fg.copy(alpha = 0.5f), fontSize = 12.sp, fontFamily = font)
             else -> Box(Modifier.fillMaxSize()) {
                 Text(shifted(key.label, state.shift), color = fg, fontSize = (if (key.label.length > 1) prefs.fontSize * 0.7f else prefs.fontSize.toFloat()).sp, fontFamily = font, modifier = Modifier.align(Alignment.Center))
                 // Indice discret de l'appui long (chiffre ou premier accent)

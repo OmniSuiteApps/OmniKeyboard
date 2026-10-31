@@ -15,7 +15,7 @@ enum class LayoutKind(val label: String, val letterRows: List<String>) {
 
 object Layouts {
     private val accents = mapOf(
-        "a" to "àâæäá", "e" to "éèêë€", "c" to "ç©", "u" to "ùûüú", "i" to "îïí", "o" to "ôœöó",
+        "a" to "àâæäáã", "e" to "éèêë€", "c" to "ç©", "u" to "ùûüú", "i" to "îïí", "o" to "ôœöóõ",
         "y" to "ÿ", "n" to "ñ", "s" to "ß§", "'" to "\"«»’",
         "," to ";:!?", "." to "…!?-:;",
         "-" to "–—_", "€" to "$£¥¢", "(" to "[{<", ")" to "]}>", "%" to "‰", "/" to "\\|",

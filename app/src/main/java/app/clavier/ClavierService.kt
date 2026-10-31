@@ -21,6 +21,8 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,7 +49,13 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         super.onCreate()
         savedState.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
-        spell = SpellSuggester(this) { word, words -> if (word == currentWord()) showSuggestions(word, words) }
+        // Nouvelle langue d'écriture : nouvelle session du correcteur
+        lifecycleScope.launch {
+            prefs.map { it.language }.distinctUntilChanged().collect { language ->
+                spell?.close()
+                spell = SpellSuggester(this@ClavierService, language.locale) { word, words -> if (word == currentWord()) showSuggestions(word, words) }
+            }
+        }
         prefs // démarre la lecture des réglages tout de suite
     }
 
@@ -79,7 +87,7 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         state.shift = Shift.OFF
         pickedLast = false
         if (suggest) lifecycleScope.launch {
-            userDictionary = withContext(Dispatchers.IO) { readUserDictionary(this@ClavierService) }
+            userDictionary = withContext(Dispatchers.IO) { readUserDictionary(this@ClavierService, prefs.value.language.locale) }
         }
         refresh()
     }

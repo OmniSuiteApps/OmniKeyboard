@@ -13,6 +13,20 @@ import kotlinx.coroutines.flow.map
 
 enum class KeyTheme(val label: String) { SYSTEM("Material You"), LIGHT("Clair"), DARK("Sombre"), BLACK("Noir") }
 
+/** Langue d'écriture : celle du correcteur et du dictionnaire perso ; `tag` nul suit les réglages du téléphone. */
+enum class WritingLanguage(val label: String, val short: String, val tag: String?) {
+    SYSTEM("Selon le téléphone", "", null),
+    FR("Français", "FR", "fr-FR"),
+    EN("English", "EN", "en-US"),
+    ES("Español", "ES", "es-ES"),
+    DE("Deutsch", "DE", "de-DE"),
+    IT("Italiano", "IT", "it-IT"),
+    PT("Português", "PT", "pt-PT"),
+    ;
+
+    val locale: java.util.Locale? get() = tag?.let(java.util.Locale::forLanguageTag)
+}
+
 enum class KeyFont(val label: String) { SANS("Sans"), SERIF("Serif"), MONO("Mono") }
 
 data class KeyboardPrefs(
@@ -30,6 +44,7 @@ data class KeyboardPrefs(
     /** Assombrissement de la photo, en %. */
     val photoDim: Int = 0,
     val layout: LayoutKind = LayoutKind.AZERTY,
+    val language: WritingLanguage = WritingLanguage.SYSTEM,
     val numberRow: Boolean = false,
     val vibrate: Boolean = true,
     val sound: Boolean = false,
@@ -58,6 +73,7 @@ private object K {
     val keyAlpha = intPreferencesKey("keyAlpha")
     val photoDim = intPreferencesKey("photoDim")
     val layout = stringPreferencesKey("layout")
+    val language = stringPreferencesKey("language")
     val numberRow = booleanPreferencesKey("numberRow")
     val vibrate = booleanPreferencesKey("vibrate")
     val sound = booleanPreferencesKey("sound")
@@ -84,6 +100,7 @@ private fun decode(p: Preferences) = KeyboardPrefs().let { d ->
         keyAlpha = p[K.keyAlpha] ?: d.keyAlpha,
         photoDim = p[K.photoDim] ?: d.photoDim,
         layout = decode(p[K.layout], d.layout),
+        language = decode(p[K.language], d.language),
         numberRow = p[K.numberRow] ?: d.numberRow,
         vibrate = p[K.vibrate] ?: d.vibrate,
         sound = p[K.sound] ?: d.sound,
@@ -112,6 +129,7 @@ suspend fun Context.saveKeyboardPrefs(v: KeyboardPrefs) {
         p[K.keyAlpha] = v.keyAlpha
         p[K.photoDim] = v.photoDim
         p[K.layout] = v.layout.name
+        p[K.language] = v.language.name
         p[K.numberRow] = v.numberRow
         p[K.vibrate] = v.vibrate
         p[K.sound] = v.sound
