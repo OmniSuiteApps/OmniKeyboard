@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,10 @@ data class KeyboardPrefs(
     val keyGap: Int = 3,
     val fontSize: Int = 22,
     val borders: Boolean = false,
+    /** Date de la photo de fond (`backgroundFile`), 0 sans photo ; change à chaque nouvelle photo pour la recharger. */
+    val background: Long = 0,
+    /** Opacité des touches sur la photo, en %. */
+    val keyAlpha: Int = 70,
     val layout: LayoutKind = LayoutKind.AZERTY,
     val numberRow: Boolean = false,
     val vibrate: Boolean = true,
@@ -34,6 +39,9 @@ data class KeyboardPrefs(
     val learn: Boolean = true,
 )
 
+/** Photo de fond déjà cadrée, copiée dans l'appli (l'accès à la photo choisie ne dure pas). */
+fun backgroundFile(context: Context) = java.io.File(context.filesDir, "fond.jpg")
+
 private val Context.store by preferencesDataStore("reglages")
 
 private object K {
@@ -44,6 +52,8 @@ private object K {
     val keyGap = intPreferencesKey("keyGap")
     val fontSize = intPreferencesKey("fontSize")
     val borders = booleanPreferencesKey("borders")
+    val background = longPreferencesKey("background")
+    val keyAlpha = intPreferencesKey("keyAlpha")
     val layout = stringPreferencesKey("layout")
     val numberRow = booleanPreferencesKey("numberRow")
     val vibrate = booleanPreferencesKey("vibrate")
@@ -67,6 +77,8 @@ private fun decode(p: Preferences) = KeyboardPrefs().let { d ->
         keyGap = p[K.keyGap] ?: d.keyGap,
         fontSize = p[K.fontSize] ?: d.fontSize,
         borders = p[K.borders] ?: d.borders,
+        background = p[K.background] ?: d.background,
+        keyAlpha = p[K.keyAlpha] ?: d.keyAlpha,
         layout = decode(p[K.layout], d.layout),
         numberRow = p[K.numberRow] ?: d.numberRow,
         vibrate = p[K.vibrate] ?: d.vibrate,
@@ -92,6 +104,8 @@ suspend fun Context.saveKeyboardPrefs(v: KeyboardPrefs) {
         p[K.keyGap] = v.keyGap
         p[K.fontSize] = v.fontSize
         p[K.borders] = v.borders
+        p[K.background] = v.background
+        p[K.keyAlpha] = v.keyAlpha
         p[K.layout] = v.layout.name
         p[K.numberRow] = v.numberRow
         p[K.vibrate] = v.vibrate

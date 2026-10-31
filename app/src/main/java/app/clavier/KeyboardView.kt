@@ -1,6 +1,14 @@
 package app.clavier
 
+import android.graphics.BitmapFactory
 import android.os.SystemClock
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -114,7 +122,15 @@ fun Keyboard(state: KeyboardState, prefs: KeyboardPrefs, actions: KeyActions, mo
     val altWidth = with(LocalDensity.current) { 40.dp.toPx() }
     val popup = remember(altWidth) { PopupState(altWidth) }
 
+    val context = LocalContext.current
+    val photo by produceState<ImageBitmap?>(null, prefs.background) {
+        value = if (prefs.background == 0L) null else withContext(Dispatchers.IO) {
+            BitmapFactory.decodeFile(backgroundFile(context).path)?.asImageBitmap()
+        }
+    }
+
     Box(modifier.background(colors.background).onGloballyPositioned { popup.rootWidth = it.size.width.toFloat() }) {
+        photo?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) }
         Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 3.dp, vertical = 2.dp)) {
             SuggestionBar(state.suggestions.takeIf { prefs.suggestions }.orEmpty(), colors, font, actions)
             for (row in rows) {
@@ -174,8 +190,9 @@ private fun KeyCell(
     val viewConfig = LocalViewConfiguration.current
     val density = LocalDensity.current
     val accent = key.code == Code.ENTER || key.code == Code.SHIFT && state.shift != Shift.OFF
-    val bg = when { accent -> colors.accent; key.code == Code.TEXT || key.code == Code.SPACE -> colors.key; else -> colors.special }
+    val bgBase = when { accent -> colors.accent; key.code == Code.TEXT || key.code == Code.SPACE -> colors.key; else -> colors.special }
     val fg = if (accent) colors.onAccent else colors.text
+    val bg = if (prefs.background == 0L) bgBase else bgBase.copy(alpha = bgBase.alpha * prefs.keyAlpha / 100f)
     val shape = RoundedCornerShape(prefs.keyRadius.dp)
 
     Box(
@@ -236,10 +253,9 @@ private fun KeyCell(
             },
         contentAlignment = Alignment.Center,
     ) {
-        val icon = keyIcon(key.code, state.enter)
+        val icon = keyIcon(key.code, state.enter, state.shift)
         when {
             icon != null -> Icon(icon, null, tint = fg, modifier = Modifier.size((prefs.fontSize + 2).dp))
-            key.code == Code.SHIFT -> Text(if (state.shift == Shift.LOCK) "⇪" else "⇧", color = fg, fontSize = prefs.fontSize.sp)
             key.code == Code.SPACE -> Text(prefs.layout.label, color = fg.copy(alpha = 0.5f), fontSize = 12.sp, fontFamily = font)
             else -> Box(Modifier.fillMaxSize()) {
                 Text(shifted(key.label, state.shift), color = fg, fontSize = (if (key.label.length > 1) prefs.fontSize * 0.7f else prefs.fontSize.toFloat()).sp, fontFamily = font, modifier = Modifier.align(Alignment.Center))
@@ -252,7 +268,8 @@ private fun KeyCell(
     }
 }
 
-private fun keyIcon(code: Code, enter: EnterAction): ImageVector? = when (code) {
+private fun keyIcon(code: Code, enter: EnterAction, shift: Shift): ImageVector? = when (code) {
+    Code.SHIFT -> ShiftIcons.of(shift)
     Code.DELETE -> Icons.AutoMirrored.Outlined.Backspace
     Code.ENTER -> when (enter) {
         EnterAction.NEWLINE -> Icons.AutoMirrored.Filled.KeyboardReturn

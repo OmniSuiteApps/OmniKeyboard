@@ -7,7 +7,14 @@ import android.view.inputmethod.InputMethodManager
 import android.view.textservice.TextServicesManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.Bitmap
+import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -129,6 +136,25 @@ private fun SettingsScreen() {
     BackHandler(enabled = page != null) { page = null }
     val preview = remember { KeyboardState().apply { suggestions = listOf("Bonj", "Bonjour", "Bonjours") } }
 
+    var cropping by remember { mutableStateOf<Bitmap?>(null) }
+    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch {
+            cropping = withContext(Dispatchers.IO) { decodePhoto(context, uri) }
+            if (cropping == null) Toast.makeText(context, "Photo illisible", Toast.LENGTH_SHORT).show()
+        }
+    }
+    cropping?.let { photo ->
+        CropScreen(photo, prefs, onCancel = { cropping = null }) { rect ->
+            scope.launch {
+                val saved = withContext(Dispatchers.IO) { runCatching { saveCrop(context, photo, rect) }.isSuccess }
+                if (saved) context.saveKeyboardPrefs(prefs.copy(background = System.currentTimeMillis()))
+                else Toast.makeText(context, "Photo non enregistrée", Toast.LENGTH_SHORT).show()
+                cropping = null
+            }
+        }
+        return
+    }
+
     Column(Modifier.safeDrawingPadding()) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val current = page
@@ -148,7 +174,7 @@ private fun SettingsScreen() {
                 }
                 Card {
                     when (current) {
-                        Category.APPEARANCE -> AppearancePage(prefs, set)
+                        Category.APPEARANCE -> AppearancePage(prefs, set) { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
                         Category.LAYOUT -> LayoutPage(prefs, set)
                         Category.TYPING -> TypingPage(prefs, set)
                         Category.GESTURES -> GesturesPage(prefs, set)
@@ -194,7 +220,7 @@ private fun SetupCard(status: Status, imm: InputMethodManager) {
 }
 
 @Composable
-private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
+private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, onPickPhoto: () -> Unit) {
     Choices("Thème", KeyTheme.entries, p.theme, { it.label }) { set(p.copy(theme = it)) }
     Choices("Police", KeyFont.entries, p.font, { it.label }) { set(p.copy(font = it)) }
     SectionTitle("Touches")
@@ -203,9 +229,18 @@ private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit) {
     Slide("Arrondi", p.keyRadius, 0..24, "dp") { set(p.copy(keyRadius = it)) }
     Slide("Espacement", p.keyGap, 0..8, "dp") { set(p.copy(keyGap = it)) }
     Toggle("Bordures", "Un contour fin autour de chaque touche", p.borders) { set(p.copy(borders = it)) }
+    SectionTitle("Photo de fond")
+    if (p.background == 0L) OutlinedButton(onPickPhoto) { Text("Choisir une photo") }
+    else {
+        Slide("Opacité des touches", p.keyAlpha, 0..100, "%") { set(p.copy(keyAlpha = it)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onPickPhoto) { Text("Changer") }
+            TextButton({ set(p.copy(background = 0)) }) { Text("Retirer") }
+        }
+    }
     val d = KeyboardPrefs()
     TextButton({
-        set(p.copy(theme = d.theme, font = d.font, keyHeight = d.keyHeight, fontSize = d.fontSize, keyRadius = d.keyRadius, keyGap = d.keyGap, borders = d.borders))
+        set(p.copy(theme = d.theme, font = d.font, keyHeight = d.keyHeight, fontSize = d.fontSize, keyRadius = d.keyRadius, keyGap = d.keyGap, borders = d.borders, keyAlpha = d.keyAlpha))
     }) { Text("Rétablir l'apparence par défaut") }
 }
 

@@ -48,3 +48,26 @@ class RulesTest {
         assertEquals("1", Layouts.rows(LayoutKind.AZERTY, Page.LETTERS, false)[0][0].alts[0])
     }
 }
+
+class CropMathTest {
+    private val image = androidx.compose.ui.geometry.Size(4000f, 3000f)
+    private val frame = androidx.compose.ui.geometry.Size(1000f, 500f)
+
+    @Test fun coverFillsFrameAndCentres() {
+        val s = CropMath.coverScale(image, frame)
+        assertEquals(0.25f, s, 1e-6f)
+        val r = CropMath.sourceRect(image, frame, s, androidx.compose.ui.geometry.Offset.Zero)
+        assertEquals(0f, r.left, 1e-3f)
+        assertEquals(500f, r.top, 1e-3f) // 3000 px de haut, 2000 visibles : 500 coupés en haut et en bas
+        assertEquals(4000f, r.width, 1e-3f)
+        assertEquals(2000f, r.height, 1e-3f)
+    }
+
+    @Test fun panIsClampedToImageEdges() {
+        val s = CropMath.coverScale(image, frame) * 2
+        val pan = CropMath.clampPan(androidx.compose.ui.geometry.Offset(99999f, -99999f), image, frame, s)
+        val r = CropMath.sourceRect(image, frame, s, pan)
+        assertEquals(0f, r.left, 1e-3f) // tiré à droite au maximum : on voit le bord gauche
+        assertEquals(3000f, r.bottom, 1e-3f) // tiré vers le haut au maximum : on voit le bas
+    }
+}
