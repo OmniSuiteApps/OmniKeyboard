@@ -136,7 +136,7 @@ class ClavierService : InputMethodService(), LifecycleOwner, SavedStateRegistryO
         val word = currentWord()
         if (!suggest || word.isEmpty()) { state.suggestions = emptyList(); return }
         showSuggestions(word, emptyList())
-        spell?.request(word)
+        spell?.request(word, before())
     }
 
     private fun showSuggestions(word: String, spellWords: List<String>) {

@@ -107,19 +107,26 @@ class SpellSuggester(
     private val session: SpellCheckerSession? = context.getSystemService(TextServicesManager::class.java)
         ?.newSpellCheckerSession(null, locale, this, locale == null)
 
-    // Une réponse par demande, dans l'ordre : la file relie chaque réponse au mot demandé
-    private val pending = ArrayDeque<String>()
+    // Une réponse par demande, dans l'ordre : la file relie chaque réponse au mot demandé et à la longueur du texte envoyé
+    private val pending = ArrayDeque<Pair<String, Int>>()
 
-    fun request(word: String) {
+    /**
+     * `before` : le texte avant le curseur, qui finit par `word`. Seul, un mot passe pour un début de phrase et le
+     * correcteur lui met une majuscule (« bonjuor » → « Bonjour ») ; avec la phrase, il ne la met qu'à bon escient.
+     */
+    fun request(word: String, before: CharSequence) {
         if (session == null || pending.size > 50) return // correcteur absent ou muet
-        pending.addLast(word)
-        session?.getSentenceSuggestions(arrayOf(TextInfo(word)), 5)
+        val text = before.takeLast(48).toString()
+        pending.addLast(word to text.length)
+        session.getSentenceSuggestions(arrayOf(TextInfo(text)), 5)
     }
 
     override fun onGetSentenceSuggestions(results: Array<out SentenceSuggestionsInfo>?) {
-        val word = pending.removeFirstOrNull() ?: return
+        val (word, end) = pending.removeFirstOrNull() ?: return
         val sentence = results?.firstOrNull() ?: return onResult(word, emptyList())
-        onResult(word, (0 until sentence.suggestionsCount).flatMap { suggestions(sentence.getSuggestionsInfoAt(it)) })
+        // Seulement les corrections du dernier mot, celui en cours de frappe
+        val last = (0 until sentence.suggestionsCount).firstOrNull { sentence.getOffsetAt(it) + sentence.getLengthAt(it) == end }
+        onResult(word, last?.let { suggestions(sentence.getSuggestionsInfoAt(it)) }.orEmpty())
     }
 
     private fun suggestions(info: SuggestionsInfo?): List<String> =
