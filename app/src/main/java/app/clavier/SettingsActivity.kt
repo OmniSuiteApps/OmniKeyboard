@@ -232,6 +232,7 @@ private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, onPic
     SectionTitle("Photo de fond")
     if (p.background == 0L) OutlinedButton(onPickPhoto) { Text("Choisir une photo") }
     else {
+        Slide("Assombrir la photo", p.photoDim, 0..90, "%") { set(p.copy(photoDim = it)) }
         Slide("Opacité des touches", p.keyAlpha, 0..100, "%") { set(p.copy(keyAlpha = it)) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onPickPhoto) { Text("Changer") }
@@ -240,7 +241,7 @@ private fun AppearancePage(p: KeyboardPrefs, set: (KeyboardPrefs) -> Unit, onPic
     }
     val d = KeyboardPrefs()
     TextButton({
-        set(p.copy(theme = d.theme, font = d.font, keyHeight = d.keyHeight, fontSize = d.fontSize, keyRadius = d.keyRadius, keyGap = d.keyGap, borders = d.borders, keyAlpha = d.keyAlpha))
+        set(p.copy(theme = d.theme, font = d.font, keyHeight = d.keyHeight, fontSize = d.fontSize, keyRadius = d.keyRadius, keyGap = d.keyGap, borders = d.borders, keyAlpha = d.keyAlpha, photoDim = d.photoDim))
     }) { Text("Rétablir l'apparence par défaut") }
 }
 

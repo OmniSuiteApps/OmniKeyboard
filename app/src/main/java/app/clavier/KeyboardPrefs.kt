@@ -27,6 +27,8 @@ data class KeyboardPrefs(
     val background: Long = 0,
     /** Opacité des touches sur la photo, en %. */
     val keyAlpha: Int = 70,
+    /** Assombrissement de la photo, en %. */
+    val photoDim: Int = 0,
     val layout: LayoutKind = LayoutKind.AZERTY,
     val numberRow: Boolean = false,
     val vibrate: Boolean = true,
@@ -54,6 +56,7 @@ private object K {
     val borders = booleanPreferencesKey("borders")
     val background = longPreferencesKey("background")
     val keyAlpha = intPreferencesKey("keyAlpha")
+    val photoDim = intPreferencesKey("photoDim")
     val layout = stringPreferencesKey("layout")
     val numberRow = booleanPreferencesKey("numberRow")
     val vibrate = booleanPreferencesKey("vibrate")
@@ -79,6 +82,7 @@ private fun decode(p: Preferences) = KeyboardPrefs().let { d ->
         borders = p[K.borders] ?: d.borders,
         background = p[K.background] ?: d.background,
         keyAlpha = p[K.keyAlpha] ?: d.keyAlpha,
+        photoDim = p[K.photoDim] ?: d.photoDim,
         layout = decode(p[K.layout], d.layout),
         numberRow = p[K.numberRow] ?: d.numberRow,
         vibrate = p[K.vibrate] ?: d.vibrate,
@@ -106,6 +110,7 @@ suspend fun Context.saveKeyboardPrefs(v: KeyboardPrefs) {
         p[K.borders] = v.borders
         p[K.background] = v.background
         p[K.keyAlpha] = v.keyAlpha
+        p[K.photoDim] = v.photoDim
         p[K.layout] = v.layout.name
         p[K.numberRow] = v.numberRow
         p[K.vibrate] = v.vibrate

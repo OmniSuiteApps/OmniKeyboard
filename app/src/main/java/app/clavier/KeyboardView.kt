@@ -130,7 +130,10 @@ fun Keyboard(state: KeyboardState, prefs: KeyboardPrefs, actions: KeyActions, mo
     }
 
     Box(modifier.background(colors.background).onGloballyPositioned { popup.rootWidth = it.size.width.toFloat() }) {
-        photo?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop) }
+        photo?.let {
+            Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+            if (prefs.photoDim > 0) Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = prefs.photoDim / 100f)))
+        }
         Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(horizontal = 3.dp, vertical = 2.dp)) {
             SuggestionBar(state.suggestions.takeIf { prefs.suggestions }.orEmpty(), colors, font, actions)
             for (row in rows) {
