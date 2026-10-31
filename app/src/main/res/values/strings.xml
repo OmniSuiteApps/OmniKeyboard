@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Clavier</string>
+    <string name="app_name">OmniKeyboard</string>
     <string name="subtype_fr">Français</string>
     <string name="subtype_en">Anglais</string>
 </resources>

@@ -1,4 +1,4 @@
-# Clavier
+# OmniKeyboard
 
 Clavier Android personnel pour Pixel 9, ultra personnalisable, avec complétion par le dictionnaire du téléphone.
 
@@ -8,7 +8,7 @@ Trois sources, fusionnées dans la barre de suggestions (mot tapé à gauche, me
 
 - **Correcteur orthographique du téléphone** (`TextServicesManager`, celui de *Paramètres > Système > Langues > Correcteur*).
   Le dictionnaire interne de Gboard n'est pas accessible aux autres claviers.
-- **Dictionnaire personnel** d'Android (`UserDictionary`), lisible seulement quand Clavier est le clavier actif.
+- **Dictionnaire personnel** d'Android (`UserDictionary`), lisible seulement quand OmniKeyboard est le clavier actif.
 - **Mots appris** : fichier privé `mots_appris.tsv`, jamais envoyé. Rien n'est appris dans les mots de passe ni en
   navigation privée (`IME_FLAG_NO_PERSONALIZED_LEARNING`).
 
@@ -21,7 +21,7 @@ JAVA_HOME=/opt/android-studio/jbr ./gradlew :app:assembleRelease
 ~/Android/Sdk/platform-tools/adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-Puis ouvrir l'appli Clavier : *Activer Clavier*, puis *Choisir le clavier*.
+Puis ouvrir l'appli OmniKeyboard : *Activer OmniKeyboard*, puis *Choisir le clavier*.
 
 ## Tests
 

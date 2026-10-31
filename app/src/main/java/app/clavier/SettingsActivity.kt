@@ -171,7 +171,7 @@ private fun SettingsScreen() {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val current = page
             if (current == null) {
-                Text("Clavier", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
+                Text("OmniKeyboard", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(vertical = 16.dp))
                 SetupCard(status, imm)
                 Category.entries.forEach { c -> MenuRow(c.icon, c.label, summary(c, prefs, status)) { page = c } }
                 Spacer(Modifier.height(4.dp))
@@ -226,7 +226,7 @@ private fun PrivacyChoice(onPick: (local: Boolean) -> Unit) {
     ) {
         Text("Bienvenue", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
         Text(
-            "Clavier n'a pas accès à Internet. Une seule question : peut-il demander de l'aide au correcteur orthographique du téléphone ?",
+            "OmniKeyboard n'a pas accès à Internet. Une seule question : peut-il demander de l'aide au correcteur orthographique du téléphone ?",
             style = MaterialTheme.typography.bodyLarge,
         )
         ChoiceCard(
@@ -273,7 +273,7 @@ private fun SetupCard(status: Status, imm: InputMethodManager) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (!status.enabled) "Clavier n'est pas activé" else "Clavier n'est pas le clavier utilisé",
+            if (!status.enabled) "OmniKeyboard n'est pas activé" else "OmniKeyboard n'est pas le clavier utilisé",
             Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
         )
         if (!status.enabled) Button({ context.startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }) { Text("Activer") }

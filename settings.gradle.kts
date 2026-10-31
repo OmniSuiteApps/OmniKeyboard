@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Clavier"
+rootProject.name = "OmniKeyboard"
 include(":app")
